@@ -141,11 +141,17 @@ export function renderExecutive(m, { compact = false } = {}) {
     <div class="ev">${evidence.map(([k, v, n]) => `<div><div class="muted">${esc(k)}</div><div class="v">${esc(v)}</div><div class="muted">${esc(n)}</div></div>`).join("")}</div>
     <p class="muted">The shift logs don't include OTIF, so the link from lost output to late deliveries is inferred, not measured. First question for Hervé on Monday: what is OTIF by client since January, and is the order book above what we ship?</p></div>`;
 
-  const prize = `<div class="prize">
-    <div><div class="muted">Prize, run-rate</div><div class="big">${signed(m.total, t1)} t/day</div><div class="muted">${int(m.totalFin.tPerYear)} t/yr of good output</div></div>
-    <div><div class="muted">Revenue capacity</div><div class="big">${eurM(m.totalFin.revenue)}/yr</div><div class="muted">${pct(m.totalFin.revenue / A.annualRevenueEur.value)} of today's €${A.annualRevenueEur.value / 1e6}M</div></div>
-    <div><div class="muted">Contribution</div><div class="big">${eurM(m.totalFin.contribution)}/yr</div><div class="muted">at an assumed ${pct(A.contributionMargin.value, 0)} margin</div></div>
-    <div><div class="muted">Plant OEE</div><div class="big">${pct(l.goodPerDay / l.capacityPerDay)} → ${pct((l.goodPerDay + m.total) / l.capacityPerDay)}</div><div class="muted">${esc(lm)} run-rate → target</div></div>
+  const largest = m.levers.reduce((a, b) => (b.fin.revenue > a.fin.revenue ? b : a));
+  const prize = `<div class="headline">
+    <div class="eyebrow">Top-line financial impact</div>
+    <p class="hl">${eurM(m.totalFin.revenue)} a year in revenue capacity, ${pct(m.totalFin.revenue / A.annualRevenueEur.value)} on top of today's €${A.annualRevenueEur.value / 1e6}M, by winning back lost output on extrusion.</p>
+    <div class="prize">
+      <div class="lead"><div class="muted">Revenue capacity</div><div class="big">${eurM(m.totalFin.revenue)}/yr</div><div class="muted">${signed(m.totalFin.revenue / A.annualRevenueEur.value, (v) => pct(v))} on €${A.annualRevenueEur.value / 1e6}M</div></div>
+      <div><div class="muted">Contribution</div><div class="big">${eurM(m.totalFin.contribution)}/yr</div><div class="muted">at an assumed ${pct(A.contributionMargin.value, 0)} margin</div></div>
+      <div><div class="muted">Good output</div><div class="big">${signed(m.total, t1)} t/day</div><div class="muted">${int(m.totalFin.tPerYear)} t/yr</div></div>
+      <div><div class="muted">Plant OEE</div><div class="big">${pct(l.goodPerDay / l.capacityPerDay)} → ${pct((l.goodPerDay + m.total) / l.capacityPerDay)}</div><div class="muted">${esc(lm)} run-rate → target</div></div>
+    </div>
+    <p class="muted">Largest lever: ${esc(largest.title.toLowerCase())}, worth ${eurM(largest.fin.revenue)}/yr. The revenue only arrives if the orders are there, and the first test checks that.</p>
   </div>`;
 
   return { hypothesis, tree, firstTest, levers, prize, targetTable, decisionList };
@@ -159,6 +165,11 @@ export const EXEC_CSS = `
 .ev .v, .prize .big { font-weight: 650; font-size: 18px; font-variant-numeric: tabular-nums; }
 .prize { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 4px 0 12px; }
 .prize .big { font-size: 22px; }
+.headline { border: 2px solid var(--s1); border-radius: 12px; padding: 14px 16px; background: color-mix(in srgb, var(--s1) 6%, var(--surface)); }
+.headline .hl { font-size: 20px; font-weight: 650; line-height: 1.3; margin: 4px 0 10px; }
+.headline .prize { margin-bottom: 6px; }
+.headline .lead .big { font-size: 30px; color: var(--s1); }
+.headline > p.muted { margin: 0; }
 .muted { color: var(--ink-2); font-size: 13px; }
 .chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; text-transform: none; letter-spacing: 0; white-space: nowrap; }
 .chip-yes { background: color-mix(in srgb, #0ca30c 18%, transparent); color: var(--good-ink); }

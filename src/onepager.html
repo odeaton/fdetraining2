@@ -24,6 +24,13 @@ h2 { font-size: 12.5px; margin: 10px 0 4px; text-transform: uppercase; letter-sp
 .prize { grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 2px 0 4px; }
 @media (max-width: 640px) { .prize { grid-template-columns: repeat(2, 1fr); } }
 .prize .big { font-size: 15px; }
+.headline { padding: 6px 10px; margin-bottom: 4px; }
+.headline .eyebrow { display: none; }
+.headline .hl { font-size: 13px; margin: 0 0 4px; }
+.headline .prize { margin: 0; }
+.headline .lead .big { font-size: 18px; }
+.top { margin-bottom: 4px; }
+.ask p, .hyp > p { margin: 1px 0 3px; }
 table.mini, table.data { font-size: 10px; margin-top: 2px; }
 table.mini th, table.mini td, table.data th, table.data td { padding: 2.5px 5px; }
 .tree .root { font-size: 11.5px; padding: 4px 8px; }
@@ -37,16 +44,15 @@ table.mini th, table.mini td, table.data th, table.data td { padding: 2.5px 5px;
 @media print {
   main { padding: 0; zoom: 0.7; }
 }
-.hyp .ev, .why, .targets th:nth-child(4), .targets td:nth-child(4) { display: none; }
+.hyp .ev, .why, .headline > p.muted, .targets th:nth-child(4), .targets td:nth-child(4) { display: none; }
 .foot { margin-top: 8px; padding-top: 4px; border-top: 1px solid var(--axis); color: var(--ink-2); font-size: 9.5px; }
 </style>
 </head>
 <body>
 <main>
   <div class="top"><h1>Polymex Plant Pulse: why deliveries are late, and the fix</h1><div class="muted">{{period}} · for Hervé and the executive team</div></div>
-  {{hypothesis}}
-  <h2>The prize</h2>
   {{prize}}
+  {{hypothesis}}
   <h2>Levers and financial value</h2>
   {{levers}}
   <div class="cols">
