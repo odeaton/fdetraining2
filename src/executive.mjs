@@ -2,7 +2,7 @@
 // MECE issue tree, levers with financial value, KPI targets and leadership decisions.
 // Every number comes from the model built in buildExecutiveModel(); the HTML is rendered at build time.
 import { stageConstraint } from "./kpi.mjs";
-import { lossTree, stageHeadroom, levers, financials, changeoverSensitivity } from "./business.mjs";
+import { lossTree, stageHeadroom, levers, financials, ebitUplift, changeoverSensitivity } from "./business.mjs";
 import { HYPOTHESES } from "./hypotheses.mjs";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -25,6 +25,8 @@ export function buildExecutiveModel({ corrected, stage, assumptions, findings })
     first: lv.first, last: lv.last, firstMonth: monthName(lv.firstMonth), lastMonth: monthName(lv.lastMonth),
     levers: lv.items.map((i) => ({ ...i, fin: financials(i.goodPerDay, assumptions) })),
     total, totalFin: financials(total, assumptions),
+    ebit: ebitUplift(financials(total, assumptions).revenue, assumptions),
+    ebitRange: assumptions.marginRange.value.map((mg) => ebitUplift(financials(total, assumptions).revenue, assumptions, mg)),
     headroom, constraint, byStage,
     treePerDay: Object.fromEntries(Object.entries(tree).map(([k, v]) => [k, v / nDays])),
     annualisedGood: (tree.good / nDays) * assumptions.daysPerYear.value,
@@ -102,11 +104,11 @@ export function renderExecutive(m, { compact = false } = {}) {
     <td class="num">${signed(x.goodPerDay, t1)}</td><td class="num">${int(x.fin.tPerYear)}</td><td class="num">${eurM(x.fin.revenue)}</td><td class="num">${eurM(x.fin.contribution)}</td></tr>`).join("");
   const levers = `
   <table class="data">
-    <tr><th>Lever (applied in order to the ${esc(lm)} run-rate)</th><th>Owner</th><th class="num">Good t/day</th><th class="num">t/yr</th><th class="num">Revenue/yr</th><th class="num">Contribution/yr</th></tr>
+    <tr><th>Lever (applied in order to the ${esc(lm)} run-rate)</th><th>Owner</th><th class="num">Good t/day</th><th class="num">t/yr</th><th class="num">Revenue/yr</th><th class="num">EBIT/yr</th></tr>
     ${leverRows}
-    <tr class="total"><td><b>Total</b></td><td></td><td class="num">${signed(m.total, t1)}</td><td class="num">${int(m.totalFin.tPerYear)}</td><td class="num">${eurM(m.totalFin.revenue)}</td><td class="num">${eurM(m.totalFin.contribution)}</td></tr>
+    <tr class="total"><td><b>Total</b></td><td></td><td class="num">${signed(m.total, t1)}</td><td class="num">${int(m.totalFin.tPerYear)}</td><td class="num">${eurM(m.totalFin.revenue)}</td><td class="num">${eurM(m.ebit)}</td></tr>
   </table>
-  <p class="muted">Revenue at ${int(m.totalFin.eurPerT)} €/t (€${A.annualRevenueEur.value / 1e6}M ÷ ${int(A.annualTonnes.value)} t, from the brief). Contribution assumes a ${pct(A.contributionMargin.value, 0)} margin, which still needs confirming. The gain fits the plant: mixing can feed ${signed(m.headroom.mixing, t1)} t/day more and packing can take ${signed(m.headroom.packing, t1)} t/day more before either becomes the constraint. Extra tonnes only become revenue if the orders are there; late deliveries suggest they are.</p>`;
+  <p class="muted">Revenue at ${int(m.totalFin.eurPerT)} €/t (€${A.annualRevenueEur.value / 1e6}M ÷ ${int(A.annualTonnes.value)} t, from the brief). EBIT is extra revenue × an assumed ${pct(A.contributionMargin.value, 0)} contribution margin with no new fixed cost; per-lever EBIT is before any fixed cost. The gain fits the plant: mixing can feed ${signed(m.headroom.mixing, t1)} t/day more and packing can take ${signed(m.headroom.packing, t1)} t/day more before either becomes the constraint. Extra tonnes only become revenue if the orders are there; late deliveries suggest they are.</p>`;
 
   const opsTargetShare = (f.changeoversPerDay * l.minPerChangeover * (1 - A.smedReduction.value)) / l.plannedMinPerDay;
   const targets = [
@@ -128,7 +130,7 @@ export function renderExecutive(m, { compact = false } = {}) {
     ["Site director", `Fund SMED on the 7 extrusion lines and nowhere else. Mixing and packing are waiting on extrusion, so extra capacity there would add nothing.`],
     ["Planning", "Run a fixed product wheel on extrusion so the changeover count stays capped."],
     ["Maintenance and process engineering", `Find the root cause of ${lever.breakdowns.machine}'s breakdowns and ${lever.speed.machine}'s speed loss.`],
-    ["Finance and sales", "Confirm the contribution margin, and share the order book and OTIF by client so the outcome can be measured."],
+    ["Finance and sales", "Confirm the contribution margin and the one-off implementation cost, which together set the EBIT figure, and share the order book and OTIF by client so the outcome can be measured."],
     ["Data owner", `Fix the ${m.anomalyCount} logging anomalies at the source before these KPIs drive bonuses or capex.`],
   ];
   const decisionList = `<ol class="decisions">${decisions.map(([o, d]) => `<li><b>${esc(o)}:</b> ${esc(d)}</li>`).join("")}</ol>`;
@@ -144,17 +146,30 @@ export function renderExecutive(m, { compact = false } = {}) {
   const largest = m.levers.reduce((a, b) => (b.fin.revenue > a.fin.revenue ? b : a));
   const prize = `<div class="headline">
     <div class="eyebrow">Top-line financial impact</div>
-    <p class="hl">${eurM(m.totalFin.revenue)} a year in revenue capacity, ${pct(m.totalFin.revenue / A.annualRevenueEur.value)} on top of today's €${A.annualRevenueEur.value / 1e6}M, by winning back lost output on extrusion.</p>
+    <p class="hl">${eurM(m.ebit)} a year of EBIT uplift from ${eurM(m.totalFin.revenue)} of extra revenue capacity (${pct(m.totalFin.revenue / A.annualRevenueEur.value)} on today's €${A.annualRevenueEur.value / 1e6}M), by winning back lost output on extrusion.</p>
     <div class="prize">
       <div class="lead"><div class="muted">Revenue capacity</div><div class="big">${eurM(m.totalFin.revenue)}/yr</div><div class="muted">${signed(m.totalFin.revenue / A.annualRevenueEur.value, (v) => pct(v))} on €${A.annualRevenueEur.value / 1e6}M</div></div>
-      <div><div class="muted">Contribution</div><div class="big">${eurM(m.totalFin.contribution)}/yr</div><div class="muted">at an assumed ${pct(A.contributionMargin.value, 0)} margin</div></div>
+      <div class="lead"><div class="muted">EBIT uplift</div><div class="big">${eurM(m.ebit)}/yr</div><div class="muted">${eurM(m.ebitRange[0])} to ${eurM(m.ebitRange[1])} at ${pct(A.marginRange.value[0], 0)} to ${pct(A.marginRange.value[1], 0)} margin</div></div>
       <div><div class="muted">Good output</div><div class="big">${signed(m.total, t1)} t/day</div><div class="muted">${int(m.totalFin.tPerYear)} t/yr</div></div>
       <div><div class="muted">Plant OEE</div><div class="big">${pct(l.goodPerDay / l.capacityPerDay)} → ${pct((l.goodPerDay + m.total) / l.capacityPerDay)}</div><div class="muted">${esc(lm)} run-rate → target</div></div>
     </div>
     <p class="muted">Largest lever: ${esc(largest.title.toLowerCase())}, worth ${eurM(largest.fin.revenue)}/yr. The revenue only arrives if the orders are there, and the first test checks that.</p>
   </div>`;
 
-  return { hypothesis, tree, firstTest, levers, prize, targetTable, decisionList };
+  const varCost = m.totalFin.revenue * (1 - A.contributionMargin.value);
+  const ebitBridge = `<table class="data bridge">
+    <tr><th>EBIT bridge, run-rate per year</th><th class="num">€</th><th>Basis</th></tr>
+    <tr><td>Extra revenue capacity</td><td class="num">${eurM(m.totalFin.revenue)}</td><td class="muted">${int(m.totalFin.tPerYear)} t × ${int(m.totalFin.eurPerT)} €/t (brief's average price)</td></tr>
+    <tr><td>− Variable cost (resin, energy, packaging)</td><td class="num">−${eurM(varCost)}</td><td class="muted">${pct(1 - A.contributionMargin.value, 0)} of revenue (assumed)</td></tr>
+    <tr><td>= Contribution</td><td class="num">${eurM(m.totalFin.contribution)}</td><td class="muted">${pct(A.contributionMargin.value, 0)} margin (assumed, confirm with finance)</td></tr>
+    <tr><td>− New fixed cost</td><td class="num">${A.incrementalFixedCostEur.value ? "−" : ""}${eurM(A.incrementalFixedCostEur.value)}</td><td class="muted">Same lines, shifts and people</td></tr>
+    <tr class="total"><td>= EBIT uplift</td><td class="num">${eurM(m.ebit)}</td><td class="muted">${pct(m.ebit / A.annualRevenueEur.value)} of today's revenue</td></tr>
+  </table>
+  <table class="data bridge"><tr><th>If the contribution margin is</th>${[A.marginRange.value[0], A.contributionMargin.value, A.marginRange.value[1]].map((mg) => `<th class="num">${pct(mg, 0)}</th>`).join("")}</tr>
+    <tr><td>EBIT uplift per year</td>${[A.marginRange.value[0], A.contributionMargin.value, A.marginRange.value[1]].map((mg) => `<td class="num"><b>${eurM(ebitUplift(m.totalFin.revenue, A, mg))}</b></td>`).join("")}</tr></table>
+  <p class="muted">Not included: one-off implementation cost (SMED kits, training, M02 repairs), any price concession agreed with the two retail clients under the batch policy, and OTIF penalties avoided. The first two lower year-one EBIT; the third raises it.</p>`;
+
+  return { hypothesis, tree, firstTest, levers, prize, targetTable, decisionList, ebitBridge };
 }
 
 export const EXEC_CSS = `

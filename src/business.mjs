@@ -116,7 +116,13 @@ export function levers(rows, { smedReduction }) {
 export function financials(tonnesPerDay, a) {
   const eurPerT = a.annualRevenueEur.value / a.annualTonnes.value;
   const tPerYear = tonnesPerDay * a.daysPerYear.value;
-  return { eurPerT, tPerYear, revenue: tPerYear * eurPerT, contribution: tPerYear * eurPerT * a.contributionMargin.value };
+  const revenue = tPerYear * eurPerT;
+  return { eurPerT, tPerYear, revenue, contribution: revenue * a.contributionMargin.value };
+}
+
+// EBIT uplift = extra revenue × contribution margin − new fixed cost. Fixed cost is shared, so it is taken off the total only.
+export function ebitUplift(revenue, a, margin = a.contributionMargin.value) {
+  return revenue * margin - a.incrementalFixedCostEur.value;
 }
 
 // Day-level test of H1's mechanism: least-squares slope of daily good output on daily changeovers,

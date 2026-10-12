@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lossTree, levers, financials, changeoverSensitivity } from "../src/business.mjs";
+import { lossTree, levers, financials, ebitUplift, changeoverSensitivity } from "../src/business.mjs";
 import { HYPOTHESES } from "../src/hypotheses.mjs";
 
 const row = (o) => ({
@@ -55,4 +55,11 @@ test("changeover sensitivity recovers a known slope and skips incomplete days", 
 test("hypothesis priors are a proper distribution over three branches", () => {
   assert.equal(HYPOTHESES.length, 3);
   assert.ok(Math.abs(HYPOTHESES.reduce((a, h) => a + h.prior, 0) - 1) < 1e-9);
+});
+
+test("EBIT uplift is extra revenue times margin, less any new fixed cost", () => {
+  const A = { contributionMargin: { value: 0.2 }, incrementalFixedCostEur: { value: 0 } };
+  assert.equal(ebitUplift(10e6, A), 2e6);
+  assert.equal(ebitUplift(10e6, A, 0.3), 3e6);
+  assert.equal(ebitUplift(10e6, { ...A, incrementalFixedCostEur: { value: 0.5e6 } }), 1.5e6);
 });

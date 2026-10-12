@@ -25,7 +25,7 @@ h2 { font-size: 12.5px; margin: 10px 0 4px; text-transform: uppercase; letter-sp
 @media (max-width: 640px) { .prize { grid-template-columns: repeat(2, 1fr); } }
 .prize .big { font-size: 15px; }
 .headline { padding: 6px 10px; margin-bottom: 4px; }
-.headline .eyebrow { display: none; }
+.headline .eyebrow { display: flex; margin-bottom: 2px; }
 .headline .hl { font-size: 13px; margin: 0 0 4px; }
 .headline .prize { margin: 0; }
 .headline .lead .big { font-size: 18px; }
@@ -42,10 +42,10 @@ table.mini th, table.mini td, table.data th, table.data td { padding: 2.5px 5px;
 .ev { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 640px) { .ev { grid-template-columns: repeat(2, 1fr); } }
 @media print {
-  main { padding: 0; zoom: 0.7; }
+  main { padding: 0; zoom: 0.69; }
 }
-.hyp .ev, .why, .headline > p.muted, .targets th:nth-child(4), .targets td:nth-child(4) { display: none; }
-.foot { margin-top: 8px; padding-top: 4px; border-top: 1px solid var(--axis); color: var(--ink-2); font-size: 9.5px; }
+.hyp .ev, .why, .headline > p.muted, .headline .hl, .targets th:nth-child(4), .targets td:nth-child(4) { display: none; }
+.foot { margin-top: 4px; padding-top: 3px; border-top: 1px solid var(--axis); color: var(--ink-2); font-size: 9.5px; }
 </style>
 </head>
 <body>
