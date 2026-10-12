@@ -2,7 +2,8 @@
 // MECE issue tree, levers with financial value, KPI targets and leadership decisions.
 // Every number comes from the model built in buildExecutiveModel(); the HTML is rendered at build time.
 import { stageConstraint } from "./kpi.mjs";
-import { lossTree, stageHeadroom, levers, financials } from "./business.mjs";
+import { lossTree, stageHeadroom, levers, financials, changeoverSensitivity } from "./business.mjs";
+import { HYPOTHESES } from "./hypotheses.mjs";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const t1 = (v) => v.toLocaleString("en-GB", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
@@ -28,6 +29,7 @@ export function buildExecutiveModel({ corrected, stage, assumptions, findings })
     treePerDay: Object.fromEntries(Object.entries(tree).map(([k, v]) => [k, v / nDays])),
     annualisedGood: (tree.good / nDays) * assumptions.daysPerYear.value,
     assumptions, anomalyCount: findings.length,
+    sensitivity: changeoverSensitivity(corrected), hypotheses: HYPOTHESES,
   };
 }
 
@@ -47,7 +49,7 @@ export function renderExecutive(m, { compact = false } = {}) {
     ["Good output", `${t1(f.goodPerDay)} → ${t1(l.goodPerDay)} t/day`, `${signed(goodDelta, t1)} t/day`],
   ];
 
-  // MECE: capacity at the constraint (A, split exactly into its losses) vs constraint elsewhere (B) vs allocation (C) vs demand (D).
+  // Three-branch MECE hypothesis tree with priors. H1's mechanism is tested with the shift logs; H2 and H3 need order data.
   const lossRow = (label, key, note = "") => {
     const d = l.treePerDay[key] - f.treePerDay[key];
     const big = Math.abs(d) >= 2;
@@ -56,29 +58,45 @@ export function renderExecutive(m, { compact = false } = {}) {
       <td class="num">${t1(f.treePerDay[key])}</td><td class="num">${t1(l.treePerDay[key])}</td>
       <td class="num ${big ? "up" : ""}">${signed(d, t1)}</td><td class="num">${eurM(yr)}</td></tr>`;
   };
+  const sens = m.sensitivity;
+  const [h1, h2, h3] = m.hypotheses;
+  const prior = (h) => `<span class="prior" title="Prior ${pct(h.prior, 0)}"><span style="width:${h.prior * 100}%"></span></span><b class="prior-v">${pct(h.prior, 0)}</b> <span class="muted">prior</span>`;
+  const sub = (kind, text, detail) => `<div class="node">${chip(kind, kind === "yes" ? "Confirmed" : "Rejected")} ${esc(text)}<div class="muted">${esc(detail)}</div></div>`;
+  const hNode = (h, status, kind, body) => `
+      <div class="node"><div class="hrow"><b>${esc(h.id)}. ${esc(h.title)}</b> ${prior(h)} ${chip(kind, status)}</div>
+        <div>${esc(h.claim)}</div><div class="muted why">Why this prior: ${esc(h.why)}</div>${body}</div>`;
   const tree = `
   <div class="tree">
     <div class="node root">Why is on-time-in-full delivery slipping since ${esc(fm)}?</div>
     <div class="branch">
-      <div class="node">${chip("yes", "Supported")} <b>A. Extrusion, the constraint, delivers less good output</b>
-        <div class="muted">Nameplate capacity ${t1(l.capacityPerDay)} t/day splits into six parts that add up exactly. Only changeovers grew.</div>
+      ${hNode(h1, "Mechanism confirmed, OTIF link untested", "yes", `
+        <div class="branch">
+          ${sub("yes", "Extrusion is the constraint", `Mixing is blocked ${pct(m.byStage.mixing.blocked_share)} of its time and packing is starved ${pct(m.byStage.packing.starved_share)}; extrusion loses only ${pct(m.byStage.extrusion.starved_share + m.byStage.extrusion.blocked_share)}.`)}
+          ${sub("yes", "Changeovers drive output", `Each extra changeover costs ${t1(-sens.tPerChangeover)} t of good output a day, and changeovers explain ${pct(sens.r2, 0)} of day-to-day variation (r = ${sens.r.toFixed(2)}, ${sens.days} full days).`)}
+          ${sub("no", "Other losses grew", "Breakdowns, other stops, speed and scrap are flat from January to March. Only changeovers grew:")}
+        </div>
         <table class="mini"><tr><th>Where capacity goes (t/day)</th><th class="num">${esc(fm.slice(0, 3))}</th><th class="num">${esc(lm.slice(0, 3))}</th><th class="num">Change</th><th class="num">Q1 value/yr</th></tr>
-          ${lossRow("A1 Availability: changeovers", "changeover")}
-          ${lossRow("A1 Availability: breakdowns", "breakdown", `${lever.breakdowns.machine} is 2× its peers`)}
-          ${lossRow("A1 Availability: other stops", "otherStops")}
-          ${lossRow("A2 Performance: speed loss", "speed", `${lever.speed.machine} is slowest`)}
-          ${lossRow("A3 Quality: scrap", "scrap")}
+          ${lossRow("Changeovers", "changeover")}
+          ${lossRow("Breakdowns", "breakdown", `${lever.breakdowns.machine} is ${(lever.breakdowns.downPerDay / lever.breakdowns.peerDownPerDay).toFixed(1)}× its peers`)}
+          ${lossRow("Other stops", "otherStops")}
+          ${lossRow("Speed loss", "speed", `${lever.speed.machine} is slowest`)}
+          ${lossRow("Scrap", "scrap")}
           ${lossRow("Good output", "good")}
         </table>
-      </div>
-      <div class="node">${chip("no", "Rejected")} <b>B. Another stage limits the flow</b>
-        <div class="muted">Mixing is blocked ${pct(m.byStage.mixing.blocked_share)} of its time, packing is starved ${pct(m.byStage.packing.starved_share)}, and extrusion loses only ${pct(m.byStage.extrusion.starved_share + m.byStage.extrusion.blocked_share)}.</div></div>
-      <div class="node">${chip("open", "Untested")} <b>C. Enough output, but the wrong product at the wrong time</b>
-        <div class="muted">Needs the production schedule against order due dates.</div></div>
-      <div class="node">${chip("open", "Untested")} <b>D. Demand or promised lead times outgrew the plant</b>
-        <div class="muted">Needs the order book and OTIF by client.</div></div>
+        <div class="muted">The six rows add up exactly to nameplate capacity (${t1(l.capacityPerDay)} t/day in ${esc(lm)}).</div>`)}
+      ${hNode(h2, "Untested", "open", `<div class="muted"><b>Needs:</b> the production schedule against order due dates.</div>`)}
+      ${hNode(h3, "Untested", "open", `<div class="muted"><b>Needs:</b> ordered tonnes and promised lead times against a Q4 2025 baseline.</div>`)}
     </div>
   </div>`;
+
+  const firstTest = `
+  <p><b>Weekly order-book reconciliation.</b> For every week from October 2025 to March 2026, compare three numbers per client: tonnes due by promised date, good tonnes produced, and tonnes shipped on time. Q4 gives the baseline from before the small batches started.</p>
+  <p class="muted"><b>Why this test first:</b> one ERP export (order lines with client, product, tonnes, order date, promised date and ship date) separates all three branches at once. It is also the missing link: the shift logs can't see OTIF, and every euro on this page assumes the orders are there.</p>
+  <table class="data"><tr><th>If the data shows</th><th>Then</th><th>Do</th></tr>
+    <tr><td>Late tonnes cluster in weeks where tonnes due exceed good output, and output fell while tonnes due held at Q4 level</td><td><b>${esc(h1.id)}</b></td><td>Batch policy and SMED (levers 1 and 2) now</td></tr>
+    <tr><td>Orders are late in weeks where good output covers tonnes due</td><td><b>${esc(h2.id)}</b></td><td>Fix scheduling and run a product wheel before spending on capacity</td></tr>
+    <tr><td>Tonnes due or promised lead times jumped compared with Q4 while output held</td><td><b>${esc(h3.id)}</b></td><td>Reset lead-time promises with the two clients; the capacity levers then sell the extra tonnes</td></tr>
+  </table>`;
 
   const leverRows = m.levers.map((x, i) => `<tr><td><b>${i + 1}. ${esc(x.title)}</b><div class="muted">${esc(x.action)}</div></td><td>${esc(x.owner)}</td>
     <td class="num">${signed(x.goodPerDay, t1)}</td><td class="num">${int(x.fin.tPerYear)}</td><td class="num">${eurM(x.fin.revenue)}</td><td class="num">${eurM(x.fin.contribution)}</td></tr>`).join("");
@@ -102,7 +120,7 @@ export function renderExecutive(m, { compact = false } = {}) {
     [`${lever.speed.machine} performance (%, Q1)`, pct(lever.speed.performance), pct(lever.speed.targetPerformance), "4. Speed"],
     ["Data anomalies per quarter", String(m.anomalyCount), "0", "Fix logging at source"],
   ];
-  const targetTable = `<table class="data"><tr><th>KPI</th><th class="num">Now (${esc(lm.slice(0, 3))})</th><th class="num">Target</th><th>Driven by</th></tr>
+  const targetTable = `<table class="data targets"><tr><th>KPI</th><th class="num">Now (${esc(lm.slice(0, 3))})</th><th class="num">Target</th><th>Driven by</th></tr>
     ${targets.map(([k, a, b, c]) => `<tr><td>${esc(k)}</td><td class="num">${esc(a)}</td><td class="num"><b>${esc(b)}</b></td><td class="muted">${esc(c)}</td></tr>`).join("")}</table>`;
 
   const decisions = [
@@ -130,7 +148,7 @@ export function renderExecutive(m, { compact = false } = {}) {
     <div><div class="muted">Plant OEE</div><div class="big">${pct(l.goodPerDay / l.capacityPerDay)} → ${pct((l.goodPerDay + m.total) / l.capacityPerDay)}</div><div class="muted">${esc(lm)} run-rate → target</div></div>
   </div>`;
 
-  return { hypothesis, tree, levers, prize, targetTable, decisionList };
+  return { hypothesis, tree, firstTest, levers, prize, targetTable, decisionList };
 }
 
 export const EXEC_CSS = `
@@ -157,6 +175,11 @@ table.mini th, table.data th { color: var(--ink-2); font-weight: 600; }
 tr.hot td { background: color-mix(in srgb, #fab219 14%, transparent); font-weight: 600; }
 td.up { color: var(--crit); }
 tr.total td { border-top: 2px solid var(--axis); font-weight: 650; }
+.prior { display: inline-block; width: 60px; height: 6px; border-radius: 3px; background: var(--grid); vertical-align: middle; margin-left: 6px; overflow: hidden; }
+.prior > span { display: block; height: 100%; background: var(--s1); border-radius: 3px; }
+.prior-v { font-variant-numeric: tabular-nums; margin-left: 4px; }
+.hrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.tree .branch .branch { margin-left: 4px; border-left-style: dashed; }
 .decisions { margin: 4px 0 0; padding-left: 20px; }
 .decisions li { margin: 4px 0; }
 `;

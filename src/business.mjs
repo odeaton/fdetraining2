@@ -98,7 +98,7 @@ export function levers(rows, { smedReduction }) {
         title: `${worstDown.machine} breakdowns down to peer level`,
         action: `${worstDown.machine} logs ${Math.round(worstDown.downPerDay)} breakdown min a day against a ${Math.round(peerDown)} min median on the other lines`,
         freedMinPerDay: worstDown.downPerDay - peerDown, goodPerDay: (worstDown.downPerDay - peerDown) * plantConv,
-        machine: worstDown.machine, availability: availability(worstDown.rows),
+        machine: worstDown.machine, downPerDay: worstDown.downPerDay, peerDownPerDay: peerDown, availability: availability(worstDown.rows),
         targetAvailability: availability(worstDown.rows) + (worstDown.downPerDay - peerDown) / (sum(worstDown.rows, (r) => r.planned_min) / days(worstDown.rows)),
       },
       {
@@ -117,4 +117,18 @@ export function financials(tonnesPerDay, a) {
   const eurPerT = a.annualRevenueEur.value / a.annualTonnes.value;
   const tPerYear = tonnesPerDay * a.daysPerYear.value;
   return { eurPerT, tPerYear, revenue: tPerYear * eurPerT, contribution: tPerYear * eurPerT * a.contributionMargin.value };
+}
+
+// Day-level test of H1's mechanism: least-squares slope of daily good output on daily changeovers,
+// over days where every line ran every shift (so missing or idle shifts don't bias it).
+export function changeoverSensitivity(rows) {
+  const byDate = groupBy(rows, (r) => r.date);
+  const lines = new Set(rows.map((r) => r.machine)).size;
+  const pts = [...byDate.values()]
+    .filter((rs) => rs.length === lines * 3 && rs.every((r) => r.planned_min > 0))
+    .map((rs) => [sum(rs, (r) => r.changeovers), sum(rs, (r) => r.output_t - r.scrap_t)]);
+  const n = pts.length;
+  const mx = sum(pts, ([x]) => x) / n, my = sum(pts, ([, y]) => y) / n;
+  const sxy = sum(pts, ([x, y]) => (x - mx) * (y - my)), sxx = sum(pts, ([x]) => (x - mx) ** 2), syy = sum(pts, ([, y]) => (y - my) ** 2);
+  return { days: n, tPerChangeover: sxy / sxx, r: sxy / Math.sqrt(sxx * syy), r2: (sxy * sxy) / (sxx * syy) };
 }

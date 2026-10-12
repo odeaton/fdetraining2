@@ -105,9 +105,10 @@ summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
     <div class="card">{{hypothesis}}</div>
     <div class="card"><h2>The prize, and where it comes from</h2>{{prize}}{{levers}}</div>
     <div class="grid2" style="margin-bottom:0">
-      <div class="card"><h2>MECE issue tree</h2><div class="note" style="margin-bottom:8px">Four branches that don't overlap and together cover every reason deliveries could slip. Only A is supported by the data.</div>{{tree}}</div>
+      <div class="card"><h2>MECE hypothesis tree with priors</h2><div class="note" style="margin-bottom:8px">Three branches that don't overlap and together cover every primary cause, so the priors add to 100%. Priors are the team's judgement from the brief, set before looking at the data.</div>{{tree}}</div>
       <div class="card"><h2>Expectations: KPIs and targets</h2><div class="note">What a successful operation looks like once the four levers land. The executive view uses corrected data.</div>{{targetTable}}</div>
     </div>
+    <div class="card"><h2>First test to run</h2>{{firstTest}}</div>
     <div class="card"><h2>What leadership needs to decide</h2>{{decisionList}}</div>
   </section>
 

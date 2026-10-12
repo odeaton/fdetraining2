@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lossTree, levers, financials } from "../src/business.mjs";
+import { lossTree, levers, financials, changeoverSensitivity } from "../src/business.mjs";
+import { HYPOTHESES } from "../src/hypotheses.mjs";
 
 const row = (o) => ({
   date: "2026-01-01", shift: "A", machine: "M01", planned_min: 480, changeovers: 0, changeover_min: 0,
@@ -37,4 +38,21 @@ test("financials convert tonnes per day to yearly revenue and contribution", () 
   assert.equal(f.tPerYear, 3650);
   assert.ok(Math.abs(f.revenue - 3650 * 148e6 / 86000) < 1e-6);
   assert.ok(Math.abs(f.contribution - f.revenue * 0.2) < 1e-6);
+});
+
+test("changeover sensitivity recovers a known slope and skips incomplete days", () => {
+  const rows = [];
+  for (let d = 1; d <= 4; d++) for (const shift of ["A", "B", "C"]) {
+    rows.push(row({ date: `2026-01-0${d}`, shift, changeovers: shift === "A" ? d : 0, output_t: shift === "A" ? 20 - 3 * d : 20 }));
+  }
+  rows.push(row({ date: "2026-01-05", changeovers: 9, output_t: 0 })); // only one shift: excluded
+  const s = changeoverSensitivity(rows);
+  assert.equal(s.days, 4);
+  assert.ok(Math.abs(s.tPerChangeover + 3) < 1e-9);
+  assert.ok(Math.abs(s.r + 1) < 1e-9);
+});
+
+test("hypothesis priors are a proper distribution over three branches", () => {
+  assert.equal(HYPOTHESES.length, 3);
+  assert.ok(Math.abs(HYPOTHESES.reduce((a, h) => a + h.prior, 0) - 1) < 1e-9);
 });

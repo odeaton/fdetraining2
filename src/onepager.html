@@ -35,8 +35,9 @@ table.mini th, table.mini td, table.data th, table.data td { padding: 2.5px 5px;
 .ev { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 640px) { .ev { grid-template-columns: repeat(2, 1fr); } }
 @media print {
-  main { padding: 0; zoom: 0.76; }
+  main { padding: 0; zoom: 0.7; }
 }
+.hyp .ev, .why, .targets th:nth-child(4), .targets td:nth-child(4) { display: none; }
 .foot { margin-top: 8px; padding-top: 4px; border-top: 1px solid var(--axis); color: var(--ink-2); font-size: 9.5px; }
 </style>
 </head>
@@ -50,10 +51,12 @@ table.mini th, table.mini td, table.data th, table.data td { padding: 2.5px 5px;
   {{levers}}
   <div class="cols">
     <div>
-      <h2>MECE issue tree</h2>
+      <h2>MECE hypothesis tree with priors</h2>
       {{tree}}
     </div>
     <div>
+      <h2>First test to run</h2>
+      {{firstTest}}
       <h2>KPIs and targets</h2>
       {{targetTable}}
     </div>
