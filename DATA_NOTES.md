@@ -2,7 +2,7 @@
 
 Profile of `extrusion_shift_log.csv` and `stage_daily.csv`. Every finding is reproducible with `python3 scripts/profile_data.py`.
 
-**Status:** each proposed handling below is waiting on a team decision. Nothing has been dropped or corrected yet.
+**Decision (team):** highlight anomalies rather than omit them. The dashboard has two views: **Corrected** (default; duplicates dropped and kg rows divided by 1000, nothing else changed) and **As logged** (raw). Every anomaly is numbered and marked on the charts, and each one's open question for Hervé is listed in the dashboard's Data notes section.
 
 ## Shape
 

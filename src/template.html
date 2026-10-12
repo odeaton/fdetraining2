@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polymex Plant Pulse</title>
+<meta name="description" content="Polymex extrusion plant, Q1 2026: output, OEE, constraint, changeovers and data anomalies, computed from the shift logs.">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --s1: #2a78d6; --s2: #eb6834; --s1-soft: #b7d3f6;
+  --warn: #fab219; --warn-ink: #7a5200; --warn-wash: #fff6e0;
+  --crit: #d03b3b; --good-ink: #006300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --s1: #3987e5; --s2: #d95926; --s1-soft: #1c5cab;
+    --warn: #fab219; --warn-ink: #fab219; --warn-wash: #2e2610;
+    --crit: #e66767; --good-ink: #0ca30c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s1-soft: #1c5cab;
+  --warn: #fab219; --warn-ink: #fab219; --warn-wash: #2e2610;
+  --crit: #e66767; --good-ink: #0ca30c;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 26px; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 0 0 2px; }
+.sub { color: var(--ink-2); margin: 2px 0 0; }
+.note { color: var(--muted); font-size: 13px; }
+header { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
+.toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 3px; }
+.toggle button { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+.toggle button[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 600; }
+.banner { display: flex; gap: 10px; align-items: flex-start; background: var(--warn-wash); border: 1px solid var(--warn); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; }
+.banner a { color: inherit; }
+.ico { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--warn); color: #000; font-size: 11px; font-weight: 700; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile, .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile .label { color: var(--ink-2); font-size: 13px; }
+.tile .value { font-size: 28px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.2; margin-top: 2px; }
+.tile .value small { font-size: 15px; font-weight: 500; color: var(--ink-2); margin-left: 2px; }
+.tile .foot { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tile.flag { border-color: var(--warn); }
+.flagtxt { color: var(--warn-ink); font-weight: 600; }
+.insight { border-left: 4px solid var(--s1); margin-bottom: 16px; }
+.insight p { font-size: 18px; margin: 4px 0 0; line-height: 1.45; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px; margin-bottom: 16px; }
+.card > .head { margin-bottom: 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--ink-2); margin: 6px 0; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.key-line { width: 16px; height: 2px; border-radius: 1px; }
+.key-rect { width: 10px; height: 10px; border-radius: 2px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.tip { position: fixed; pointer-events: none; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.12); border-radius: 8px; padding: 8px 10px; font-size: 13px; min-width: 150px; opacity: 0; transition: opacity .1s; z-index: 10; }
+.tip .t { color: var(--ink-2); margin-bottom: 4px; }
+.tip .r { display: flex; align-items: center; gap: 8px; }
+.tip .r b { font-variant-numeric: tabular-nums; }
+.tip .w { color: var(--warn-ink); margin-top: 4px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--ink-2); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+details { margin-top: 8px; }
+summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
+.scroll { overflow-x: auto; }
+.evidence { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); }
+.verify td:nth-child(2), .verify td:nth-child(3) { font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { h1 { font-size: 22px; } .tile .value { font-size: 24px; } .insight p { font-size: 16px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Polymex Plant Pulse</h1>
+      <p class="sub" id="period"></p>
+    </div>
+    <div class="toggle" role="group" aria-label="Data view">
+      <button type="button" data-view="corrected" aria-pressed="true">Corrected</button>
+      <button type="button" data-view="asLogged" aria-pressed="false">As logged</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+  <section class="tiles" id="tiles" aria-label="Headline KPIs"></section>
+
+  <section class="card insight" aria-label="Insight">
+    <div class="note">Insight for Hervé</div>
+    <p id="insight"></p>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <div class="head"><h2>Good output per day</h2><div class="note">Tonnes of good extrusion output (output − scrap), all 7 lines. Numbered markers show the anomalies listed in Data notes.</div></div>
+    <div class="legend" id="legend-daily"></div>
+    <div id="chart-daily"></div>
+    <details><summary>Show data table</summary><div class="scroll" id="table-daily"></div></details>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <div class="head"><h2>Extrusion OEE by line</h2><div class="note">OEE = availability × performance × quality, each a ratio of sums.</div></div>
+      <div id="chart-oee"></div>
+    </section>
+    <section class="card">
+      <div class="head"><h2>The constraint: <span id="constraint-name"></span></h2><div class="note">Unit-minutes per day each stage spent starved (no input) or blocked (no room downstream). From stage_daily.csv.</div></div>
+      <div class="legend" id="legend-stage"></div>
+      <div id="chart-stage"></div>
+      <ul class="evidence" id="evidence"></ul>
+    </section>
+  </div>
+
+  <section class="card" style="margin-bottom:16px">
+    <div class="head"><h2>Changeovers per week</h2><div class="note">Product changeovers started, all lines, ISO weeks starting Monday. Faded bars are partial weeks.</div></div>
+    <div id="chart-weeks"></div>
+    <details><summary>Show data table</summary><div class="scroll" id="table-weeks"></div></details>
+  </section>
+
+  <section class="card" id="notes" style="margin-bottom:16px">
+    <div class="head"><h2>Data notes</h2><div class="note" id="notes-sub"></div></div>
+    <div class="scroll"><table id="table-notes"></table></div>
+    <p class="note" id="recon"></p>
+  </section>
+
+  <section class="card">
+    <div class="head"><h2>Numbers for Pair B to verify</h2><div class="note">Pair B should match the corrected column, or explain the difference.</div></div>
+    <div class="scroll"><table class="verify" id="table-verify"></table></div>
+  </section>
+
+  <p class="note" id="built" style="margin-top:16px"></p>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const NS = "http://www.w3.org/2000/svg";
+const $ = (id) => document.getElementById(id);
+const pct = (v, d = 1) => (v == null ? "n/a" : (v * 100).toFixed(d) + "%");
+const t1 = (v) => v.toLocaleString("en-GB", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const int = (v) => Math.round(v).toLocaleString("en-GB");
+const fmtDate = (d, opts = { day: "numeric", month: "short" }) => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { ...opts, timeZone: "UTC" });
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+function el(tag, attrs = {}, parent) {
+  const n = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function h(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  Object.assign(n, props);
+  for (const k of kids) n.append(k);
+  return n;
+}
+
+// Anomalies are numbered in Data notes order; markers and badges reuse the number.
+const anomalyNo = Object.fromEntries(DATA.findings.map((f, i) => [f.id, i + 1]));
+const CHANGES_NUMBERS = new Set(["duplicates", "kg_units"]);
+const anomaliesOnDate = (date) => DATA.findings.filter((f) => f.dates.includes(date));
+const anomaliesOnMachine = (m) =>
+  DATA.findings.filter((f) => f.rows.length && f.rows.length < DATA.period.machines.length && f.rows.some((k) => k.split("|")[2] === m));
+
+let current = "corrected";
+const tip = $("tip");
+function showTip(evt, title, rows, warn) {
+  tip.replaceChildren(h("div", { className: "t", textContent: title }));
+  for (const [color, label, value] of rows) {
+    const r = h("div", { className: "r" });
+    if (color) r.append(h("span", { className: "key-line", style: `background:${color}` }));
+    r.append(h("b", { textContent: value }), h("span", { textContent: label, style: "color:var(--ink-2)" }));
+    tip.append(r);
+  }
+  if (warn) tip.append(h("div", { className: "w", textContent: "⚠ " + warn }));
+  const x = Math.min(evt.clientX + 14, innerWidth - tip.offsetWidth - 8);
+  const y = Math.min(evt.clientY + 14, innerHeight - tip.offsetHeight - 8);
+  tip.style.left = x + "px"; tip.style.top = y + "px"; tip.style.opacity = 1;
+}
+const hideTip = () => (tip.style.opacity = 0);
+
+function niceMax(v) {
+  const p = 10 ** Math.floor(Math.log10(v));
+  return [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((m) => m * p).find((m) => m >= v);
+}
+
+function renderHeader(v) {
+  const p = DATA.period;
+  $("period").textContent = `Extrusion, ${fmtDate(p.from, { day: "numeric", month: "short", year: "numeric" })} to ${fmtDate(p.to, { day: "numeric", month: "short", year: "numeric" })} · ${p.days} days · lines ${p.machines[0]} to ${p.machines.at(-1)}`;
+  const b = $("banner");
+  const n = DATA.findings.length;
+  b.replaceChildren(h("span", { className: "ico", textContent: "!" }));
+  const txt = h("div");
+  if (current === "corrected") {
+    txt.append(h("b", { textContent: `${n} data anomalies found. ` }),
+      `Showing corrected numbers: ${DATA.findings.filter((f) => CHANGES_NUMBERS.has(f.id)).map((f) => f.title.toLowerCase()).join(" and ")} fixed, nothing else changed. Switch to "As logged" to see the raw figures. `,
+      h("a", { href: "#notes", textContent: "See Data notes" }));
+  } else {
+    txt.append(h("b", { textContent: "Showing raw figures as logged. " }),
+      `These include ${n} anomalies and do not reconcile with stage_daily.csv on ${DATA.mismatchedDays.asLogged.length} days. Affected numbers are flagged. `,
+      h("a", { href: "#notes", textContent: "See Data notes" }));
+  }
+  b.append(txt);
+}
+
+function renderTiles(v) {
+  const other = DATA.views[current === "corrected" ? "asLogged" : "corrected"];
+  const diff = (a, b) => Math.abs(a - b) > 1e-9;
+  const tiles = [
+    ["Good output per day", t1(v.goodPerDay), "t", `avg over ${DATA.period.days} days`, diff(v.goodPerDay, other.goodPerDay), t1(other.goodPerDay)],
+    ["Plant OEE", pct(v.plant.oee), "", "extrusion, all lines", diff(v.plant.oee, other.plant.oee), pct(other.plant.oee)],
+    ["Availability", pct(v.plant.availability), "", "run ÷ planned min", diff(v.plant.availability, other.plant.availability), pct(other.plant.availability)],
+    ["Performance", pct(v.plant.performance), "", "output ÷ nameplate", diff(v.plant.performance, other.plant.performance), pct(other.plant.performance)],
+    ["Quality", pct(v.plant.quality), "", "good ÷ gross t", diff(v.plant.quality, other.plant.quality), pct(other.plant.quality)],
+    ["Changeovers", int(v.changeovers), "", `Jan–Mar, ${int(v.changeovers / (DATA.period.days / 7))} per week`, diff(v.changeovers, other.changeovers), int(other.changeovers)],
+  ];
+  $("tiles").replaceChildren(...tiles.map(([label, value, unit, foot, affected, otherShown]) => {
+    const flag = affected && current === "asLogged";
+    const sameShown = flag && value === otherShown;
+    const impossible = current === "asLogged" && /%$/.test(value) && parseFloat(value) > 100;
+    return h("div", { className: "tile" + (flag ? " flag" : "") },
+      h("div", { className: "label", textContent: label }),
+      h("div", { className: "value" }, value, unit ? h("small", { textContent: unit }) : ""),
+      h("div", { className: "foot" }, flag ? h("span", { className: "flagtxt", textContent: impossible ? "⚠ impossible (>100%), anomaly 2" : sameShown ? "⚠ includes anomaly rows, same when rounded" : "⚠ differs from corrected" }) : foot));
+  }));
+}
+
+function renderInsight() {
+  const i = DATA.insight;
+  const m = (s) => fmtDate(s + "-01", { month: "long" });
+  $("insight").textContent =
+    `Changeovers ate ${pct(i.lastShare)} of extrusion's planned time in ${m(i.lastMonth)}, up from ${pct(i.firstShare)} in ${m(i.firstMonth)} ` +
+    `(${i.firstChangeovers} → ${i.lastChangeovers} changeovers). Because extrusion is the constraint, those extra ${int(i.extraMinPerDay)} line-minutes a day are worth about ` +
+    `${t1(i.lostTPerDay)} t of good output per day, close to the whole ${t1(i.dropTPerDay)} t/day drop in good output over the same period.`;
+}
+
+function legend(target, items) {
+  $(target).replaceChildren(...items.map(([color, label, kind]) =>
+    h("span", {}, h("span", { className: kind === "rect" ? "key-rect" : "key-line", style: `background:${color}` }), label)));
+}
+
+function renderDaily(v) {
+  const W = 1100, H = 300, m = { t: 26, r: 12, b: 28, l: 44 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Daily good output line chart" });
+  const d = v.daily;
+  const max = niceMax(Math.max(...d.map((x) => x.good_t)) * 1.05);
+  const x = (i) => m.l + (i * (W - m.l - m.r)) / (d.length - 1);
+  const y = (val) => m.t + (H - m.t - m.b) * (1 - Math.min(val, max) / max);
+  for (let g = 0; g <= 4; g++) {
+    const val = (max / 4) * g;
+    el("line", { x1: m.l, x2: W - m.r, y1: y(val), y2: y(val), stroke: g ? "var(--grid)" : "var(--axis)" }, svg);
+    el("text", { x: m.l - 6, y: y(val) + 4, "text-anchor": "end" }, svg).textContent = int(val) + (g === 4 ? " t" : "");
+  }
+  d.forEach((p, i) => {
+    if (p.date.endsWith("-01")) el("text", { x: x(i), y: H - 8, "text-anchor": "start" }, svg).textContent = fmtDate(p.date, { month: "short" });
+  });
+  // Anomaly days: band + numbered marker.
+  d.forEach((p, i) => {
+    const fs = anomaliesOnDate(p.date);
+    if (!fs.length) return;
+    el("rect", { x: x(i) - 4, y: m.t, width: 8, height: H - m.t - m.b, fill: "var(--warn)", opacity: 0.18 }, svg);
+  });
+  const line = (key, color, width) => el("path", {
+    d: d.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(""),
+    fill: "none", stroke: color, "stroke-width": width, "stroke-linejoin": "round", "stroke-linecap": "round",
+  }, svg);
+  line("good_t", "var(--s1)", 2);
+  line("rolling_t", "var(--s2)", 2);
+  // Off-scale points (as-logged kg days) are clipped and labelled.
+  d.forEach((p, i) => {
+    if (p.good_t > max) {
+      el("path", { d: `M${x(i) - 5},${m.t + 6} L${x(i)},${m.t - 1} L${x(i) + 5},${m.t + 6}Z`, fill: "var(--crit)" }, svg);
+    }
+  });
+  const placed = [];
+  d.forEach((p, i) => {
+    for (const f of anomaliesOnDate(p.date)) {
+      let mx = x(i);
+      while (placed.some((px) => Math.abs(px - mx) < 15)) mx += 15;
+      placed.push(mx);
+      el("circle", { cx: mx, cy: 11, r: 8, fill: "var(--warn)" }, svg);
+      const t = el("text", { x: mx, y: 15, "text-anchor": "middle", style: "fill:#000;font-weight:700;font-size:10px" }, svg);
+      t.textContent = anomalyNo[f.id];
+    }
+  });
+  if (d.some((p) => p.good_t > max)) {
+    const i = d.findIndex((p) => p.good_t > max);
+    el("text", { x: x(i) + 10, y: m.t + 14, style: "fill:var(--crit);font-weight:600" }, svg).textContent = `off scale: up to ${int(Math.max(...d.map((p) => p.good_t)))} "t"`;
+  }
+  const hair = el("line", { y1: m.t, y2: H - m.b, stroke: "var(--muted)", "stroke-width": 1, opacity: 0 }, svg);
+  const hit = el("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent" }, svg);
+  hit.addEventListener("pointermove", (e) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W;
+    const i = Math.max(0, Math.min(d.length - 1, Math.round(((px - m.l) / (W - m.l - m.r)) * (d.length - 1))));
+    hair.setAttribute("x1", x(i)); hair.setAttribute("x2", x(i)); hair.setAttribute("opacity", 1);
+    const fs = anomaliesOnDate(d[i].date);
+    showTip(e, fmtDate(d[i].date, { weekday: "short", day: "numeric", month: "short" }),
+      [["var(--s1)", "good output", t1(d[i].good_t) + " t"], ["var(--s2)", "7-day average", t1(d[i].rolling_t) + " t"]],
+      fs.length ? fs.map((f) => `#${anomalyNo[f.id]} ${f.title}`).join(", ") : "");
+  });
+  hit.addEventListener("pointerleave", () => { hair.setAttribute("opacity", 0); hideTip(); });
+  $("chart-daily").replaceChildren(svg);
+  legend("legend-daily", [["var(--s1)", "Good output (t/day)"], ["var(--s2)", "7-day rolling average"], ["var(--warn)", "Anomaly day", "rect"]]);
+
+  const tbl = h("table");
+  tbl.append(h("tr", {}, h("th", { textContent: "Date" }), h("th", { className: "num", textContent: "Good output (t)" }), h("th", { className: "num", textContent: "7-day avg (t)" }), h("th", { textContent: "Anomaly" })));
+  for (const p of d) {
+    tbl.append(h("tr", {}, h("td", { textContent: p.date }), h("td", { className: "num", textContent: t1(p.good_t) }), h("td", { className: "num", textContent: t1(p.rolling_t) }),
+      h("td", { textContent: anomaliesOnDate(p.date).map((f) => `#${anomalyNo[f.id]}`).join(" ") })));
+  }
+  $("table-daily").replaceChildren(tbl);
+}
+
+function renderOee(v) {
+  const rows = [...v.machines, { machine: "Plant", ...v.plant }];
+  const W = 540, rowH = 34, m = { t: 22, l: 92, r: 150 }, H = m.t + rows.length * rowH + 6;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "OEE by line bar chart" });
+  const bw = W - m.l - m.r;
+  const x = (val) => m.l + bw * Math.min(Math.max(val, 0), 1);
+  for (const g of [0, 0.25, 0.5, 0.75, 1]) {
+    el("line", { x1: x(g), x2: x(g), y1: m.t - 4, y2: H - 4, stroke: g ? "var(--grid)" : "var(--axis)" }, svg);
+    el("text", { x: x(g), y: 12, "text-anchor": "middle" }, svg).textContent = g * 100 + "%";
+  }
+  const cols = [["A", "availability"], ["P", "performance"], ["Q", "quality"]];
+  cols.forEach(([lab], j) => (el("text", { x: W - m.r + 30 + j * 42, y: 12, "text-anchor": "end", style: "font-weight:600" }, svg).textContent = lab));
+  rows.forEach((r, i) => {
+    const cy = m.t + i * rowH + rowH / 2;
+    const isPlant = r.machine === "Plant";
+    if (isPlant) el("line", { x1: 0, x2: W, y1: cy - rowH / 2, y2: cy - rowH / 2, stroke: "var(--axis)" }, svg);
+    const flags = isPlant ? [] : anomaliesOnMachine(r.machine);
+    el("text", { x: 0, y: cy + 4, style: `fill:var(--ink);font-size:13px;${isPlant ? "font-weight:700" : ""}` }, svg).textContent = r.machine;
+    flags.forEach((f, k) => {
+      el("circle", { cx: 44 + k * 17, cy, r: 7.5, fill: "var(--warn)" }, svg);
+      el("text", { x: 44 + k * 17, y: cy + 3.5, "text-anchor": "middle", style: "fill:#000;font-weight:700;font-size:10px" }, svg).textContent = anomalyNo[f.id];
+    });
+    const over = r.oee > 1;
+    const bar = el("rect", { x: m.l, y: cy - 9, width: Math.max(2, x(r.oee) - m.l), height: 18, rx: 4, fill: over ? "var(--crit)" : isPlant ? "var(--ink-2)" : "var(--s1)" }, svg);
+    el("text", { x: over ? x(1) - 6 : x(r.oee) + 6, y: cy + 4, "text-anchor": over ? "end" : "start", style: `fill:${over ? "#fff" : "var(--ink)"};font-weight:600;font-size:12px` }, svg).textContent = pct(r.oee) + (over ? " ⚠" : "");
+    cols.forEach(([, k], j) => {
+      const val = r[k];
+      el("text", { x: W - m.r + 30 + j * 42, y: cy + 4, "text-anchor": "end", style: `fill:${val > 1 ? "var(--crit)" : "var(--ink-2)"};font-size:12px` }, svg).textContent = pct(val, 0);
+    });
+    const hit = el("rect", { x: 0, y: cy - rowH / 2, width: W, height: rowH, fill: "transparent" }, svg);
+    hit.addEventListener("pointermove", (e) => {
+      bar.setAttribute("opacity", 0.8);
+      showTip(e, r.machine === "Plant" ? "Plant (all lines)" : `Line ${r.machine}`,
+        [[null, "OEE", pct(r.oee)], [null, "availability", pct(r.availability)], [null, "performance", pct(r.performance)], [null, "quality", pct(r.quality)]],
+        over ? "OEE above 100% is impossible: output logged in kg" : flags.map((f) => `#${anomalyNo[f.id]} ${f.title}`).join(", "));
+    });
+    hit.addEventListener("pointerleave", () => { bar.setAttribute("opacity", 1); hideTip(); });
+  });
+  $("chart-oee").replaceChildren(svg);
+  const worst = [...v.machines].sort((a, b) => a.oee - b.oee)[0];
+  const best = [...v.machines].sort((a, b) => b.oee - a.oee)[0];
+  const p = h("p", { className: "note" });
+  p.textContent = current === "corrected"
+    ? `Lowest: ${worst.machine} at ${pct(worst.oee)} OEE (performance ${pct(worst.performance)}). Highest: ${best.machine} at ${pct(best.oee)}. A = availability, P = performance, Q = quality.`
+    : "As logged, M06's kg entries push its performance and OEE past 100%, and inflate the plant figure with it. A = availability, P = performance, Q = quality.";
+  $("chart-oee").append(p);
+}
+
+function renderStage() {
+  const { stages, constraint } = DATA.constraint;
+  $("constraint-name").textContent = constraint;
+  const W = 540, rowH = 54, m = { t: 20, l: 80, r: 60 }, H = m.t + stages.length * rowH;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Starved and blocked minutes per stage" });
+  const max = niceMax(Math.max(...stages.flatMap((s) => [s.starved_min_per_day, s.blocked_min_per_day])));
+  const x = (val) => m.l + ((W - m.l - m.r) * val) / max;
+  for (let g = 0; g <= 4; g++) {
+    const val = (max / 4) * g;
+    el("line", { x1: x(val), x2: x(val), y1: m.t - 4, y2: H, stroke: g ? "var(--grid)" : "var(--axis)" }, svg);
+    el("text", { x: x(val), y: 12, "text-anchor": "middle" }, svg).textContent = int(val) + (g === 4 ? " min" : "");
+  }
+  stages.forEach((s, i) => {
+    const top = m.t + i * rowH + 8;
+    const isC = s.stage === constraint;
+    el("text", { x: 0, y: top + 18, style: `fill:var(--ink);font-size:13px;${isC ? "font-weight:700" : ""}` }, svg).textContent = s.stage;
+    if (isC) el("text", { x: 0, y: top + 32, style: "fill:var(--s1);font-size:11px;font-weight:600" }, svg).textContent = "constraint";
+    [["starved_min_per_day", "var(--s1)", "starved"], ["blocked_min_per_day", "var(--s2)", "blocked"]].forEach(([k, c, lab], j) => {
+      const y0 = top + j * 18;
+      const bar = el("rect", { x: m.l, y: y0, width: Math.max(2, x(s[k]) - m.l), height: 16, rx: 4, fill: c }, svg);
+      el("text", { x: x(s[k]) + 6, y: y0 + 12, style: "fill:var(--ink-2);font-size:12px" }, svg).textContent = int(s[k]) + " min";
+      const hit = el("rect", { x: m.l, y: y0 - 1, width: W - m.l, height: 18, fill: "transparent" }, svg);
+      hit.addEventListener("pointermove", (e) => { bar.setAttribute("opacity", 0.8); showTip(e, `${s.stage}, per day`, [[c, lab, int(s[k]) + " unit-min"], [null, "output", t1(s.output_t_per_day) + " t"]]); });
+      hit.addEventListener("pointerleave", () => { bar.setAttribute("opacity", 1); hideTip(); });
+    });
+  });
+  $("chart-stage").replaceChildren(svg);
+  legend("legend-stage", [["var(--s1)", "Starved (waiting for input)", "rect"], ["var(--s2)", "Blocked (no room downstream)", "rect"]]);
+  const by = Object.fromEntries(stages.map((s) => [s.stage, s]));
+  const c = by[constraint];
+  const items = [
+    by.mixing && `Mixing, upstream, is blocked ${int(by.mixing.blocked_min_per_day)} unit-min a day (${pct(by.mixing.blocked_share)} of its planned time): extrusion can't take its material.`,
+    by.packing && `Packing, downstream, is starved ${int(by.packing.starved_min_per_day)} unit-min a day (${pct(by.packing.starved_share)}): it waits on extrusion.`,
+    `${constraint[0].toUpperCase() + constraint.slice(1)} itself is starved or blocked only ${pct(c.starved_share + c.blocked_share)} of its time, so it sets the plant's pace.`,
+  ].filter(Boolean);
+  $("evidence").replaceChildren(...items.map((t) => h("li", { textContent: t })));
+}
+
+function renderWeeks(v) {
+  const w = v.weeks, other = DATA.views[current === "corrected" ? "asLogged" : "corrected"].weeks;
+  const W = 1100, H = 260, m = { t: 30, r: 12, b: 34, l: 44 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Changeovers per week bar chart" });
+  const max = niceMax(Math.max(...w.map((d) => d.changeovers)) * 1.1);
+  const slot = (W - m.l - m.r) / w.length, bw = slot - 6;
+  const y = (val) => m.t + (H - m.t - m.b) * (1 - val / max);
+  for (let g = 0; g <= 4; g++) {
+    const val = (max / 4) * g;
+    el("line", { x1: m.l, x2: W - m.r, y1: y(val), y2: y(val), stroke: g ? "var(--grid)" : "var(--axis)" }, svg);
+    el("text", { x: m.l - 6, y: y(val) + 4, "text-anchor": "end" }, svg).textContent = int(val);
+  }
+  w.forEach((d, i) => {
+    const x0 = m.l + i * slot + 3;
+    const partial = d.days < 7;
+    const changed = other[i].changeovers !== d.changeovers;
+    const days = DATA.views.corrected.daily.map((p) => p.date).filter((dt) => dt >= d.week && dt < addDays(d.week, 7));
+    const fs = [...new Set(days.flatMap((dt) => anomaliesOnDate(dt)))];
+    const bar = el("rect", { x: x0, y: y(d.changeovers), width: bw, height: Math.max(0, H - m.b - y(d.changeovers)), rx: 4, fill: partial ? "var(--s1-soft)" : "var(--s1)" }, svg);
+    el("text", { x: x0 + bw / 2, y: y(d.changeovers) - 6, "text-anchor": "middle", style: "fill:var(--ink-2);font-size:12px" }, svg).textContent = d.changeovers;
+    el("text", { x: x0 + bw / 2, y: H - 14, "text-anchor": "middle" }, svg).textContent = fmtDate(d.week) + (partial ? "*" : "");
+    if (changed) {
+      el("circle", { cx: x0 + bw / 2, cy: 10, r: 8, fill: "var(--warn)" }, svg);
+      el("text", { x: x0 + bw / 2, y: 14, "text-anchor": "middle", style: "fill:#000;font-weight:700;font-size:10px" }, svg).textContent = fs.filter((f) => CHANGES_NUMBERS.has(f.id)).map((f) => anomalyNo[f.id]).join(",") || "!";
+    }
+    const hit = el("rect", { x: x0 - 3, y: m.t, width: slot, height: H - m.t, fill: "transparent" }, svg);
+    hit.addEventListener("pointermove", (e) => {
+      bar.setAttribute("opacity", 0.8);
+      showTip(e, `Week of ${fmtDate(d.week, { day: "numeric", month: "short", year: "numeric" })}${partial ? ` (${d.days} days)` : ""}`,
+        [["var(--s1)", "changeovers", String(d.changeovers)], [null, "changeover time", int(d.changeover_min) + " min"]],
+        changed ? `${current === "corrected" ? "As logged" : "Corrected"}: ${other[i].changeovers}. ${fs.filter((f) => CHANGES_NUMBERS.has(f.id)).map((f) => f.title).join(", ")}` : "");
+    });
+    hit.addEventListener("pointerleave", () => { bar.setAttribute("opacity", 1); hideTip(); });
+  });
+  el("text", { x: W - m.r, y: H - 1, "text-anchor": "end" }, svg).textContent = "* partial week   ⚠ number differs between views";
+  $("chart-weeks").replaceChildren(svg);
+
+  const tbl = h("table");
+  tbl.append(h("tr", {}, h("th", { textContent: "Week starting" }), h("th", { className: "num", textContent: "Days" }), h("th", { className: "num", textContent: "Changeovers" }), h("th", { className: "num", textContent: "Changeover time (min)" })));
+  for (const d of w) tbl.append(h("tr", {}, h("td", { textContent: d.week }), h("td", { className: "num", textContent: d.days }), h("td", { className: "num", textContent: d.changeovers }), h("td", { className: "num", textContent: int(d.changeover_min) })));
+  $("table-weeks").replaceChildren(tbl);
+}
+function addDays(d, n) { const x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); }
+
+function renderNotes() {
+  const { corrected: c, asLogged: a } = DATA.views;
+  $("notes-sub").textContent = `${DATA.findings.length} anomalies detected in code from ${DATA.rowCount.toLocaleString("en-GB")} shift rows. None are hidden: rows 1 and 2 are corrected in the default view, the rest are kept as logged. Each has an open question for the site.`;
+  const tbl = $("table-notes");
+  tbl.replaceChildren(h("tr", {}, ...["#", "Anomaly", "Where / evidence", "KPI effect", "How the dashboard handles it", "Question for Hervé"].map((t) => h("th", { textContent: t }))));
+  DATA.findings.forEach((f, i) => {
+    const effect = {
+      kg_units: `Plant performance ${pct(a.plant.performance)} → ${pct(c.plant.performance)}; plant OEE ${pct(a.plant.oee)} → ${pct(c.plant.oee)}`,
+      duplicates: `Changeovers ${a.changeovers} → ${c.changeovers}; double-counts that shift's output`,
+      single_rate: "Performance is only as right as the 2.3 t/h rate",
+    }[f.id] ?? "None on the KPIs";
+    tbl.append(h("tr", {},
+      h("td", {}, h("span", { className: "ico", textContent: i + 1 })),
+      h("td", {}, h("b", { textContent: f.title })),
+      h("td", { textContent: f.detail + (f.id === "duplicates" ? ` (${f.dates.join(", ")}, ${[...new Set(f.rows.map((k) => "shift " + k.split("|")[1]))].join(", ")})` : "") }),
+      h("td", { textContent: effect }),
+      h("td", { textContent: f.handling }),
+      h("td", { textContent: f.question })));
+  });
+  const md = DATA.mismatchedDays;
+  $("recon").textContent = `Cross-check: the shift log's daily extrusion output differs from stage_daily.csv by more than 0.1 t on ${md.asLogged.length} days as logged (${md.asLogged.join(", ")}) and on ${md.corrected.length} days after correction.`;
+}
+
+function renderVerify() {
+  const { corrected: c, asLogged: a } = DATA.views;
+  const tbl = $("table-verify");
+  tbl.replaceChildren(h("tr", {}, ...["Number", "Corrected", "As logged", "Method"].map((t, i) => h("th", { className: i && i < 3 ? "num" : "", textContent: t }))));
+  [
+    ["Plant extrusion OEE, Jan to Mar", pct(c.plant.oee, 2), pct(a.plant.oee, 2), "sum(run)/sum(planned) × sum(output)/sum(run/60 × 2.3) × sum(output − scrap)/sum(output)"],
+    ["M07 OEE", pct(c.m07Oee, 2), pct(a.m07Oee, 2), "Same formula, machine = M07"],
+    ["Changeovers, week of 23 to 29 March", String(c.week23Mar), String(a.week23Mar), "Sum of changeovers, dates 2026-03-23 to 2026-03-29"],
+  ].forEach(([n, cv, av, meth]) => tbl.append(h("tr", {}, h("td", { textContent: n }), h("td", { className: "num", textContent: cv }), h("td", { className: "num", textContent: av }), h("td", { textContent: meth }))));
+}
+
+function render() {
+  const v = DATA.views[current];
+  document.querySelectorAll(".toggle button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === current)));
+  renderHeader(v); renderTiles(v); renderDaily(v); renderOee(v); renderWeeks(v);
+}
+document.querySelectorAll(".toggle button").forEach((b) => b.addEventListener("click", () => { current = b.dataset.view; render(); }));
+renderInsight(); renderStage(); renderNotes(); renderVerify(); render();
+$("built").textContent = `Every number on this page is computed from extrusion_shift_log.csv and stage_daily.csv at build time (${DATA.builtAt.slice(0, 16).replace("T", " ")} UTC). Nothing is typed by hand.`;
+</script>
+</body>
+</html>

@@ -52,3 +52,14 @@ claude
 Then tell Claude Code what you want to build. `CLAUDE.md` already gives it the context and the working rules. A Next.js app reading the CSVs at build time is the fastest path to Vercel, but any stack that deploys is fine.
 
 To deploy: `npx vercel` from the project folder (log in with your Vercel account), or import the GitHub repository at vercel.com/new.
+
+## Run the dashboard
+
+No dependencies, Node 20+:
+
+```bash
+npm test         # KPI unit tests (src/kpi.mjs)
+npm run build    # reads the CSVs, writes dist/index.html
+```
+
+Open `dist/index.html` in a browser. Vercel uses `vercel.json` (build `npm run build`, output `dist`).
