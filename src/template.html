@@ -79,6 +79,12 @@ summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
 .evidence { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); }
 .verify td:nth-child(2), .verify td:nth-child(3) { font-variant-numeric: tabular-nums; }
 @media (max-width: 560px) { h1 { font-size: 22px; } .tile .value { font-size: 24px; } .insight p { font-size: 16px; } }
+/*__EXEC_CSS__*/
+.exec-h { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; margin: 4px 0 10px; }
+.exec-h h2 { font-size: 20px; }
+.section-h { font-size: 20px; margin: 28px 0 10px; padding-top: 16px; border-top: 1px solid var(--axis); }
+.card + .card { margin-top: 0; }
+.stack > * { margin-bottom: 16px; }
 </style>
 </head>
 <body>
@@ -94,6 +100,18 @@ summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
     </div>
   </header>
 
+  <section class="stack" aria-label="Executive view">
+    <div class="exec-h"><h2>Executive view: what Hervé asked us to solve</h2><a href="one-pager.html" class="note">Open the printable one-pager →</a></div>
+    <div class="card">{{hypothesis}}</div>
+    <div class="card"><h2>The prize, and where it comes from</h2>{{prize}}{{levers}}</div>
+    <div class="grid2" style="margin-bottom:0">
+      <div class="card"><h2>MECE issue tree</h2><div class="note" style="margin-bottom:8px">Four branches that don't overlap and together cover every reason deliveries could slip. Only A is supported by the data.</div>{{tree}}</div>
+      <div class="card"><h2>Expectations: KPIs and targets</h2><div class="note">What a successful operation looks like once the four levers land. The executive view uses corrected data.</div>{{targetTable}}</div>
+    </div>
+    <div class="card"><h2>What leadership needs to decide</h2>{{decisionList}}</div>
+  </section>
+
+  <h2 class="section-h">Plant detail, Q1 2026</h2>
   <div class="banner" id="banner"></div>
   <section class="tiles" id="tiles" aria-label="Headline KPIs"></section>
 

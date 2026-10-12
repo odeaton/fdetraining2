@@ -62,4 +62,4 @@ npm test         # KPI unit tests (src/kpi.mjs)
 npm run build    # reads the CSVs, writes dist/index.html
 ```
 
-Open `dist/index.html` in a browser. Vercel uses `vercel.json` (build `npm run build`, output `dist`).
+Open `dist/index.html` in a browser; the executive view is at the top. `dist/one-pager.html` is the printable one-pager (A4); a PDF snapshot is in `docs/plant-pulse-one-pager.pdf`. Non-CSV inputs (revenue, tonnes, margin and SMED assumptions) live in `src/assumptions.mjs`. Vercel uses `vercel.json` (build `npm run build`, output `dist`).

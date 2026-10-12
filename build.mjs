@@ -4,6 +4,8 @@ import {
   loadCsv, detectAnomalies, oeeBreakdown, oee, goodOutput, dailyGoodOutput, changeoversPerWeek,
   stageConstraint, dateRange, groupBy, weekStart,
 } from "./src/kpi.mjs";
+import { ASSUMPTIONS } from "./src/assumptions.mjs";
+import { buildExecutiveModel, renderExecutive, EXEC_CSS } from "./src/executive.mjs";
 
 const log = loadCsv("extrusion_shift_log.csv");
 const stage = loadCsv("stage_daily.csv");
@@ -66,8 +68,26 @@ const data = {
   builtAt: new Date().toISOString(),
 };
 
+const exec = buildExecutiveModel({ corrected, stage, assumptions: ASSUMPTIONS, findings });
+const blocks = renderExecutive(exec);
+const fill = (tpl, extra = {}) =>
+  Object.entries({ ...blocks, ...extra }).reduce((html, [k, v]) => html.replaceAll(`{{${k}}}`, () => v), tpl).replace("/*__EXEC_CSS__*/", () => EXEC_CSS);
+
 const json = JSON.stringify(data).replace(/</g, "\\u003c");
-const html = readFileSync("src/template.html", "utf8").replace("/*__DATA__*/null", json);
+const html = fill(readFileSync("src/template.html", "utf8")).replace("/*__DATA__*/null", () => json);
+const fmt = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const onePager = fill(readFileSync("src/onepager.html", "utf8"), {
+  period: `${fmt(from)} to ${fmt(to)}`,
+  footer: `Source: extrusion_shift_log.csv (${log.length.toLocaleString("en-GB")} rows) and stage_daily.csv, ${findings.length} anomalies corrected or flagged (see dashboard Data notes). ` +
+    `Annualised good output ${Math.round(exec.annualisedGood).toLocaleString("en-GB")} t vs ${ASSUMPTIONS.annualTonnes.value.toLocaleString("en-GB")} t in the brief. ` +
+    `Assumed, not in the data: ${Object.values(ASSUMPTIONS).filter((a) => a.short).map((a) => a.short(a.value)).join("; ")}. ` +
+    `Every number is computed from the CSVs at build time (${data.builtAt.slice(0, 10)}).`,
+});
+for (const doc of [html, onePager]) {
+  const left = doc.match(/\{\{\w+\}\}/);
+  if (left) throw new Error(`Unfilled placeholder ${left[0]}`);
+}
 mkdirSync("dist", { recursive: true });
 writeFileSync("dist/index.html", html);
-console.log(`dist/index.html written (${(html.length / 1024).toFixed(0)} KB), ${findings.length} anomalies flagged`);
+writeFileSync("dist/one-pager.html", onePager);
+console.log(`dist/index.html (${(html.length / 1024).toFixed(0)} KB) and dist/one-pager.html written, ${findings.length} anomalies flagged`);
